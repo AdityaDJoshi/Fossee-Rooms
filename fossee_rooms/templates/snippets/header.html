@@ -1,0 +1,10 @@
+{% if user.is_authenticated %}
+<nav class="navbar navbar-expand-sm bg-dark navbar-dark sticky-top p-3 px-md-4">
+    <div class="container">
+        <h2 class="my-0 mr-md-auto font-weight-normal" >
+            <a class="text-decoration-none" href="{% url 'dashboard' %}" style="color:#ccc;">Hi {{ user }}! </a>								<!--Change this-->
+        </h2>
+        <a class="btn btn-outline-danger" href="{% url 'logout' %}">Sign Out</a>
+    </div>
+</nav>
+{% endif %}

@@ -1,0 +1,698 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container">
+    <div class="row justify-content-center">
+        <h1 class="my-5">
+            Welcome to Room Slot Booking!
+        </h1>
+    </div>
+</div>
+
+<div class="container">
+    <ul class="nav nav-pills justify-content-center">
+
+        <!-- For Customer -->
+        {% if user.profile.room_manager is False %}
+        <li class="nav-item">
+            <a class="nav-link active" id="book-room-pill" data-toggle="pill" href="#book-room">Book Room</a>
+        </li>
+        <li class="nav-item">
+            <a class="nav-link" id="previous-bookings-pill" data-toggle="pill" href="#previous-bookings">My Previous Bookings</a>
+        </li>
+
+        <!-- For Room Manager -->
+        {% else %}
+        <li class="nav-item">
+            <a class="nav-link active" id="home-pill" data-toggle="pill" href="#home">Home</a>
+        </li>
+        <li class="nav-item dropdown">
+            <a class="nav-link dropdown-toggle" id="manage-rooms-pill" data-toggle="dropdown" href="#">Manage Rooms</a>
+            <div class="dropdown-menu">
+              <a class="dropdown-item" id="pre-booking-pill" data-toggle="pill" href="#pre-booking">Pre-Booking Allowance</a>
+              <a class="dropdown-item" id="rooms-pill" data-toggle="pill" href="#rooms">No. of Rooms</a>
+              <a class="dropdown-item" id="time-slots-pill" data-toggle="pill" href="#time-slots">Time Slots</a>
+            </div>
+          </li>
+        <li class="nav-item">
+            <a class="nav-link" id="summary-pill" data-toggle="pill" href="#summary">Bookings Summary</a>
+        </li>
+        {% endif %}
+
+        <!-- For Everyone -->
+        <li class="nav-item">
+            <a class="nav-link" id="update-profile-pill" data-toggle="pill" href="#update-profile">Update Profile</a>
+        </li>
+    </ul>
+
+    <div class="tab-content">
+
+        <!-- For Customer -->
+        {% if user.profile.room_manager is False %}
+
+        <!-- For Booking Room -->
+
+        <div class="tab-pane container active" id="book-room">
+            <form method="POST">
+                {% csrf_token %}
+                {% if time_slots_list|length %}
+                <p class="text-center mt-3">Note: You can book Rooms for only {{ allowance }} days in advanced.</p>
+                {% endif %}
+                <div class="row justify-content-center mt-4">
+                    <div class="col-md-3 mb-3">
+                        <label for="booking-date">Date</label>
+                        <input name="booked-on" data-date-format="yyyy-mm-dd" id="booking-date" class="form-control" required>
+                    </div>
+                    <div class="col-md-3 mb-3" id="available-rooms-div">
+                        <label for="available-rooms">Available Room(s)</label>
+                        <select name="booking-room" class="custom-select d-block w-100" id="available-rooms" required></select>
+                    </div>
+                    <div class="col-md-3 mb-3" id="available-time-slots-div">
+                        <label for="available-time-slots">Available Time Slot(s)</label>
+                        <select name="booking-time-slot" class="custom-select d-block w-100" id="available-time-slots" required></select>
+                    </div>
+                </div>
+                <p class="text-danger text-center" id="booking-error"></p>
+                <div class="row justify-content-center mb-4">
+                    <div class="col-md-4">
+                        <button id="book-button" name="submit" value="book-room" class="btn btn-primary btn-lg btn-block" type="submit">Book</button>
+                    </div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Customers all Previous Bookings -->
+
+        <div class="tab-pane container fade" id="previous-bookings">
+            <div class="row justify-content-center my-4 mx-0">
+                <div class="col-12 col-md-10 border rounded">
+                    <h4 class="text-center mt-3">Previous Bookings</h4>
+                    <hr>
+                    <p>
+                        {% if user_bookings.count %}
+                        <table class="table table-hover">
+                            <thead>
+                                <tr class="text-center">
+                                    <th>Date</th>
+                                    <th>Room No.</th>
+                                    <th>Time Slot</th>
+                                    <th>Status</th>
+                                    <th>Room Manager</th>
+                                    <th></th>
+                                </tr class="text-center">
+                            </thead>
+                            <tbody>
+                                {% for booking in user_bookings %}
+                                <tr class="text-center">
+                                    <td class="text-monospace font-weight-lighter">{{ booking.date }}</td>
+                                    <td class="text-monospace font-weight-lighter">{{ booking.room }}</td>
+                                    <td class="text-monospace font-weight-lighter">{{ booking.time_slot }}</td>
+
+                                    {% if booking.cancelled is True %}
+                                    <td class="text-monospace font-weight-lighter">Cancelled</td>
+                                    {% elif booking.date > today_date or booking.date == today_date and booking.time_slot.start_time > time_now %}
+                                    <td class="text-monospace font-weight-lighter">Upcoming</td>
+                                    {% elif booking.date == today_date and time_now > booking.time_slot.start_time and booking.time_slot.end_time > time_now %}
+                                    <td class="text-monospace font-weight-lighter">Occupied</td>
+                                    {% else %}
+                                    <td class="text-monospace font-weight-lighter">Completed</td>
+                                    {% endif %}
+
+                                    <td class="text-monospace font-weight-lighter">
+                                        <a class="text-primary" style="cursor: pointer;" onclick="show_manager_details('{{ booking.room_manager.id }}')">{{ booking.room_manager }}</a>
+                                    </td>
+
+                                    {% if booking.date > today_date or booking.date == today_date and booking.time_slot.start_time > time_now %}
+                                        {% if booking.cancelled is False %}
+                                        <td class="text-monospace font-weight-lighter">
+                                            <a href="{% url 'delete_booking' uid=booking.id %}">Cancel</a>
+                                        </td>
+                                        {% else %}
+                                        <td class="text-monospace font-weight-lighter">
+                                            <a class="text-secondary" style="cursor: pointer;">Cancel</a>
+                                        </td>
+                                        {% endif %}
+                                    {% else %}
+                                    <td class="text-monospace font-weight-lighter">
+                                        <a class="text-secondary" style="cursor: pointer;">Cancel</a>
+                                    </td>
+                                    {% endif %}
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <pre>No bookings made yet!</pre>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+
+        <!-- For Room Manager -->
+        {% else %}
+
+        <!-- Room Manager HOME -->
+
+        <div class="tab-pane container active" id="home">
+            <div class="row justify-content-center mt-4">
+                <div class="col-12 col-md-8">
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr>
+                                <th class="text-center">Pre-Booking Allowance</th>
+                                <th class="text-center" >Rooms</th>
+                            </tr>
+                            <tr>
+                                <td class="text-center">{{ allowance }}</td>
+                                {% if rooms_context2 %}
+                                <td class="text-center">{{ rooms_context1 }}<br>{{ rooms_context2 }} </td>
+                                {% else %}
+                                <td class="text-center">{{ rooms_context1 }}</td>
+                                {% endif %}
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-6">
+                    {% if time_slots_list|length %}
+                    <table class="table table-bordered">
+                        <tbody>
+                            <tr>
+                                <th class="text-center">Time Slots</th>
+                            </tr>
+                            {% for time_slot in time_slots_list %}
+                            <tr>
+                                <td class="text-center m-0">{{ time_slot.start_time }} - {{ time_slot.end_time }} {{ time_slot.remark }}</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-center">Time Slots are not updated yet!</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+
+        <!-- Update Pre-Booking Allowance -->
+
+        <div class="tab-pane container fade" id="pre-booking">
+            <div class="row justify-content-center">
+                <div class="col-10 col-sm-8 col-lg-4">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <h3 class="mt-4 mb-3 text-center">Update Pre-Booking Allowance</h3>
+                        <table class="table table-bordered">
+                            <tbody>
+                                <tr>
+                                    <th class="text-center">Current Allowance</th>
+                                </tr>
+                                <tr>
+                                    <td class="text-center">{{ allowance }}</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                        <label for="new-allowance-input">New Pre-Booking Allowance</label>
+                        <input name="allowance" type="number" class="form-control" id="new-allowance-input" required>
+                        <button type="submit" class="btn btn-primary btn-block my-4" name="submit" value="allowance">Update</button>
+                        {% if allowance_error %}
+                        <p class="text-center text-danger">*{{allowance_error}}</p>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Update Number of Rooms -->
+
+        <div class="tab-pane container fade" id="rooms">
+            <div class="row justify-content-center">
+                <div class="col-10 col-sm-8 col-lg-4">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <h3 class="mt-4 mb-3 text-center">Update Rooms</h3>
+                        <table class="table table-bordered">
+                            <tbody>
+                                <tr>
+                                    <th class="text-center">Current Rooms</th>
+                                </tr>
+                                <tr>
+                                    {% if rooms_context2 %}
+                                    <td class="text-center">{{ rooms_context1 }}<br>{{ rooms_context2 }} </td>
+                                    {% else %}
+                                    <td class="text-center">{{ rooms_context1 }}</td>
+                                    {% endif %}
+                                </tr>
+                            </tbody>
+                        </table>
+
+                        {% comment %}
+                        {% if rooms_context2 %}
+                        <p class="text-center">Current Rooms: {{ rooms_context1 }}<br>{{ rooms_context2 }} </p>
+                        {% else %}
+                        <p class="text-center">Current Rooms: {{ rooms_context1 }}</p>
+                        {% endif %}
+                        {% endcomment %}
+
+                        <label for="new-rooms-input">New Rooms</label>
+                        <input name="rooms" type="number" class="form-control" id="new-rooms-input" required>
+                        <button type="submit" class="btn btn-primary btn-block my-4" name="submit" value="rooms">Update</button>
+                        {% if rooms_error %}
+                        <p class="text-center text-danger">*{{rooms_error}}</p>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Update Time Slots -->
+
+        <div class="tab-pane container fade" id="time-slots">
+            <div class="row justify-content-center">
+                <div class="col-8">
+                    <h3 class="mt-3 mb-3 text-center">Add Time Slots</h3>
+                    <p class="text-center font-weight-bold mb-1">Current Time Slots:</p>
+                    {% if time_slots_list|length %}
+                    <table class="table table-bordered">
+                        <tbody>
+                            {% for time_slot in time_slots_list %}
+                            <tr>
+                                <td class="text-center m-0">{{ time_slot.start_time }} - {{ time_slot.end_time }} {{ time_slot.remark }}</td>
+                                <td class="text-left m-0">
+                                    {% if time_slot.delete == 'yes' %}
+                                    <a href="{% url 'delete_ts' uid=time_slot.id %}">Delete</a>
+                                    {% else %}
+                                    <a class="text-secondary" style="cursor: pointer;">Delete</a>
+                                    {% endif %}
+                                </td>
+                            </tr>
+                            <!-- <p class="text-center m-0">{{ time_slot.start_time }} - {{ time_slot.end_time }} {{ time_slot.remark }}</p> -->
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                    {% else %}
+                    <p class="text-center m-0">Nothing to show here!</p>
+                    {% endif %}
+                </div>
+            </div>
+            <div class="row justify-content-center">
+                <div class="col-10 col-sm-8 col-lg-4">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <label for="timepicker1" class="mt-2">From</label>
+                        <input type="text" id="timepicker1" class="form-control" name="start_time" />
+                        <label for="timepicker2">To</label>
+                        <input type="text" id="timepicker2" class="form-control" name="end_time" />
+                        <button type="submit" class="btn btn-primary btn-block my-4" name="submit" value="time_slot">Add</button>
+                        {% if time_slot_error %}
+                        <p class="text-center text-danger">*{{time_slot_error}}</p>
+                        {% endif %}
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- All Bookings Summary -->
+
+        <div class="tab-pane container fade" id="summary">
+            <div class="row justify-content-center my-4 mx-0">
+                <div class="col-12 col-md-10 border rounded">
+                    <h4 class="text-center mt-3">Bookings Summary</h4>
+                    <hr>
+                    <p>
+                        {% if all_bookings.count %}
+                        <table class="table table-hover">
+                            <thead>
+                                <tr class="text-center">
+                                    <th>Date</th>
+                                    <th>Room No.</th>
+                                    <th>Time Slot</th>
+                                    <th>Customer</th>
+                                    <th>Status</th>
+                                    <th>Room Manager</th>
+                                </tr class="text-center">
+                            </thead>
+                            <tbody>
+                                {% for booking in all_bookings %}
+                                <tr class="text-center">
+                                    <td class="text-monospace font-weight-lighter">{{ booking.date }}</td>
+                                    <td class="text-monospace font-weight-lighter">{{ booking.room }}</td>
+                                    <td class="text-monospace font-weight-lighter">{{ booking.time_slot }}</td>
+
+                                    <td class="text-monospace font-weight-lighter">
+                                        <a class="text-primary" style="cursor: pointer;" onclick="show_customer_details('{{ booking.customer.id }}')">{{ booking.customer }}</a>
+                                    </td>
+
+                                    {% if booking.cancelled is True %}
+                                    <td class="text-monospace font-weight-lighter">Cancelled</td>
+                                    {% elif booking.date > today_date or booking.date == today_date and booking.time_slot.start_time > time_now %}
+                                    <td class="text-monospace font-weight-lighter">Upcoming</td>
+                                    {% else %}
+                                    <td class="text-monospace font-weight-lighter">Completed</td>
+                                    {% endif %}
+
+                                    <td class="text-monospace font-weight-lighter">
+                                        <a class="text-primary" style="cursor: pointer;" onclick="show_manager_details('{{ booking.room_manager.id }}')">{{ booking.room_manager }}</a>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                        {% else %}
+                        <pre>No bookings made yet!</pre>
+                        {% endif %}
+                    </p>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- For Everyone -->
+
+        <!-- Update Profile -->
+
+        <div class="tab-pane container fade" id="update-profile">
+            <div class="row justify-content-center mt-4">
+                <div class="col-12 col-md-8">
+                    <form method="POST">
+                        {% csrf_token %}
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label for="firstName">First name</label>
+                                <input name="first_name" type="text" class="form-control" id="firstName" placeholder="" value="{{ user.first_name }}" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label for="lastName">Last name</label>
+                                <input name="last_name" type="text" class="form-control" id="lastName" placeholder="" value="{{ user.last_name }}" required>
+                            </div>
+                        </div>
+        
+                        <div class="mb-3">
+                            <label for="email">Email </label>
+                            <input name="email" type="email" class="form-control" id="email" placeholder="" value="{{ user.email }}" required>
+                        </div>
+        
+                        <div class="row">
+                            <div class="col-md-4 mb-3">
+                                <label for="gender">Gender</label>
+                                <select name="gender" class="custom-select d-block w-100" id="gender" required>
+                                    <option value="M" {% if user.profile.gender == "M" %} selected {% endif %}>Male</option>
+                                    <option value="F" {% if user.profile.gender == "F" %} selected {% endif %}>Female</option>
+                                    <option value="O" {% if user.profile.gender == "O" %} selected {% endif %}>Other</option>
+                                </select>
+                            </div>
+                            <div class="col-md-8 mb-3">
+                                <label for="contactNo">Contact No.</label>
+                                <input name="contact_no" type="number" class="form-control" id="contactNo" placeholder="" value="{{ user.profile.contact_no }}" required>
+                            </div>
+                        </div>
+        
+                        <div class="mb-3">
+                            <label for="address">Address</label>
+                            <textarea name="address" id="address" class="form-control" rows="4" placeholder="" required>{{ user.profile.address }}</textarea>
+                        </div>
+        
+                        <hr class="mb-4">
+                        <div class="row justify-content-center mb-4">
+                            <div class="col-md-6">
+                                <button type="submit" class="btn btn-primary btn-lg btn-block" name="submit" value="update-profile">Update</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Delete Time Slots warning Modal -->
+<div class="modal" id="del-ts-modal">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+    
+            <div class="modal-header">
+                <h4 class="modal-title">Delete following Time Slots?</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body">
+                The following time slots overlaps with the entered new time slot. Do you want to delete these slots?
+                {% for time_slot in del_time_slots_list %}
+                <p class="text-center m-0">{{ time_slot.start_time }} - {{ time_slot.end_time }} {{ time_slot.remark }}</p>
+                {% endfor %}
+                <form method="POST" class="my-2 text-center">
+                    {% csrf_token %}
+                    <input type="hidden" name="start_time" value="{{ entered_start_time }}" />
+                    <input type="hidden" name="end_time" value="{{ entered_end_time }}" />
+                    <button type="submit" class="btn btn-danger" id="del-ts" name="submit" value="del_ts">Delete</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Room Manager Details Modal -->
+<div class="modal" id="rm-details-modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Room Manager Details</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body" id="rm-details-modal-body">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Customer Details Modal -->
+<div class="modal" id="cus-details-modal">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h4 class="modal-title">Customer Details</h4>
+                <button type="button" class="close" data-dismiss="modal">&times;</button>
+            </div>
+            <div class="modal-body" id="cus-details-modal-body">
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Toast -->
+{% for message in messages %}
+<div class="row justify-content-center">
+    <div style="position: fixed; bottom: 25px; left: 10px; z-index: 10;">
+        <div class="toast bg-success {{ message.tags }}" id="alert_toast" role="alert" aria-live="assertive" aria-atomic="true" data-delay="1500">
+            <div class="toast-body p-2 px-3">
+                <strong class="mr-auto">{{message}}</strong>
+                <button type="button" class="ml-3 close" style="margin-top: -3px;" data-dismiss="toast" aria-label="Close">
+                    <span aria-hidden="true">&times;</span>
+                </button>
+            </div>
+        </div>
+    </div>
+  </div>
+{% endfor %}
+
+{% endblock %}
+
+{% block scripts %}
+<!-- For Toasts -->
+<script>
+    if("{{messages}}"){
+        $('#alert_toast').toast('show');
+    }
+</script>
+
+<!-- For Time Pickers -->
+<script>
+    $('#timepicker1').timepicker({
+        uiLibrary: 'bootstrap4'
+    });
+    $('#timepicker2').timepicker({
+        uiLibrary: 'bootstrap4'
+    });
+</script>
+
+<!-- For Error Messages on Dashboard -->
+<script>
+    if("{{time_slot_error}}"){
+        document.getElementById("home").classList.remove('active')
+        document.getElementById("home").classList.add('fade')
+        document.getElementById("time-slots").classList.remove('fade')
+        document.getElementById("time-slots").classList.add('active')
+
+        document.getElementById("home-pill").classList.remove('active')
+        document.getElementById("time-slots-pill").classList.add('active')
+        document.getElementById("manage-rooms-pill").classList.add('active')
+    }
+
+    if("{{allowance_error}}"){
+        document.getElementById("home").classList.remove('active')
+        document.getElementById("home").classList.add('fade')
+        document.getElementById("pre-booking").classList.remove('fade')
+        document.getElementById("pre-booking").classList.add('active')
+
+        document.getElementById("home-pill").classList.remove('active')
+        document.getElementById("pre-booking-pill").classList.add('active')
+        document.getElementById("manage-rooms-pill").classList.add('active')
+    }
+
+    if("{{rooms_error}}"){
+        document.getElementById("home").classList.remove('active')
+        document.getElementById("home").classList.add('fade')
+        document.getElementById("rooms").classList.remove('fade')
+        document.getElementById("rooms").classList.add('active')
+
+        document.getElementById("home-pill").classList.remove('active')
+        document.getElementById("rooms-pill").classList.add('active')
+        document.getElementById("manage-rooms-pill").classList.add('active')
+    }
+
+    if("{{del_time_slots_list}}"){
+        $('#del-ts-modal').modal('show')
+    }
+</script>
+
+<!-- AJAX for Room Booking Date Change -->
+
+<script>
+    let available_rooms_div = document.getElementById('available-rooms-div');
+    let available_time_slots_div = document.getElementById('available-time-slots-div');
+    let booking_error = document.getElementById('booking-error');
+    let book_button = document.getElementById('book-button');
+    
+    $("#booking-date").change(function () {
+        var booking_date = $(this).val();
+
+        $.ajax({
+            url: '{% url "booking_date_changed" %}',
+            data: {
+                'booking_date': booking_date
+            },
+            dataType: 'json',
+            success: function (data) {
+
+                if(data.error == ''){
+                    if(available_rooms_div.classList.contains('d-none')) available_rooms_div.classList.remove('d-none');
+                    if(available_time_slots_div.classList.contains('d-none')) available_time_slots_div.classList.remove('d-none');
+                    booking_error.innerHTML = ""
+                    if(book_button.hasAttribute("disabled")) book_button.removeAttribute("disabled");
+                    
+                    let options = '<option value="" > Select Room </option>';;
+                    for(let i=1; i<=data.rooms; i++){
+                        options += '<option value="' + i + '">' + i + '</option>';
+                    }
+                    $("#available-rooms").html(options);
+                }
+                else{
+                    if(!available_rooms_div.classList.contains('d-none')) available_rooms_div.classList.add('d-none');
+                    if(!available_time_slots_div.classList.contains('d-none')) available_time_slots_div.classList.add('d-none');
+                    if(!book_button.hasAttribute("disabled")) book_button.setAttribute("disabled", "disabled")
+                    booking_error.innerHTML = data.error
+                }
+            }
+        });
+    });
+</script>
+
+<!-- AJAX for Room Booking Room Change -->
+
+<script>
+    $("#available-rooms").change(function () {
+        var booking_room = $(this).val();
+        var booking_date = $("#booking-date").val();
+
+        $.ajax({
+            url: '{% url "booking_room_changed" %}',
+            data: {
+                'booking_date': booking_date,
+                'booking_room': booking_room
+            },
+            dataType: 'json',
+            success: function (data) {
+
+                if(data.error == ''){
+                    if(available_time_slots_div.classList.contains('d-none')) available_time_slots_div.classList.remove('d-none');
+                    booking_error.innerHTML = ""
+                    if(book_button.hasAttribute("disabled")) book_button.removeAttribute("disabled");
+
+                    let options = '';
+                    for(let i=0; i<data.time_slots.length; i++){
+                        options += '<option value="' + data.time_slots[i].id + '">' + data.time_slots[i].slot + '</option>';
+                    }
+                    $("#available-time-slots").html(options);
+
+                }
+                else{
+                    if(!available_time_slots_div.classList.contains('d-none')) available_time_slots_div.classList.add('d-none');
+                    if(!book_button.hasAttribute("disabled")) book_button.setAttribute("disabled", "disabled")
+                    booking_error.innerHTML = data.error
+                }
+            }
+        });
+    });
+</script>
+
+<!-- AJAX for Room Manager Details -->
+
+<script>
+    function show_manager_details(room_manager_id) {
+
+        $.ajax({
+            url: '{% url "room_manager_details" %}',
+            data: {
+                'room_manager_id': room_manager_id
+            },
+            dataType: 'json',
+            success: function (data) {
+                details = '<p class="mb-1"><span class="font-weight-bold">Name: </span>' + data.first_name + ' ' + data.last_name + '</p><p class="mb-1"><span class="font-weight-bold">Email: </span> ' + data.email + '</p><p class="mb-1"><span class="font-weight-bold">Contact No.: </span> ' + data.contact_no + '</p>';
+                $('#rm-details-modal-body').html(details);
+                $('#rm-details-modal').modal('show');
+            }
+        });
+    }
+</script>
+
+<!-- AJAX for Customer Details -->
+
+<script>
+    function show_customer_details(customer_id) {
+
+        $.ajax({
+            url: '{% url "customer_details" %}',
+            data: {
+                'customer_id': customer_id
+            },
+            dataType: 'json',
+            success: function (data) {
+                details = '<p class="mb-1"><span class="font-weight-bold">Name: </span>' + data.first_name + ' ' + data.last_name + '</p><p class="mb-1"><span class="font-weight-bold">Email: </span> ' + data.email + '</p><p class="mb-1"><span class="font-weight-bold">Contact No.: </span> ' + data.contact_no + '</p><p class="mb-1"><span class="font-weight-bold">Address: </span>' + data.address + '</p>';
+                $('#cus-details-modal-body').html(details);
+                $('#cus-details-modal').modal('show');
+            }
+        });
+    }
+</script>
+
+<!-- Script for Room Booking Date Picker -->
+
+<script type="text/javascript">
+    $('#booking-date').datepicker({
+        weekStart: 1,
+        autoclose: true,
+        todayHighlight: true,
+    });
+    $('#booking-date').datepicker("setDate", new Date());
+    
+</script>
+
+{% endblock %}
